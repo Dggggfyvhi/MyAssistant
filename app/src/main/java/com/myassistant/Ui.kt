@@ -109,7 +109,7 @@ fun Modifier.glass(shape: Shape = RoundedCornerShape(20.dp)): Modifier {
     if (haze != null) {
         m = m.hazeEffect(state = haze, style = dev.chrisbanes.haze.HazeStyle(
             backgroundColor = tint,
-            tint = androidx.compose.ui.graphics.Color.Unspecified,
+            tint = null,
             blurRadius = 24.dp,
             noiseFactor = 0.02f
         ))
@@ -755,7 +755,8 @@ fun SettingsScreen(vm: VM, onBack: () -> Unit) {
                         Hint("开启后模型可调用读屏、点击、打开应用/网页、滚动等工具。需要先开启无障碍服务。")
                     }
 
-                    SectionTitle("关于")
+                    item {
+                        SectionTitle("关于")
                         Group {
                             Column(Modifier.padding(14.dp)) {
                                 Text("我的助手 · AI 聊天 + Agent", fontSize = 15.sp)
