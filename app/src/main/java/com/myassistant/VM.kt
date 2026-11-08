@@ -27,6 +27,7 @@ class VM(app: Application) : AndroidViewModel(app) {
     var cur by mutableStateOf(Chat(newId(), ""))
     var modelLabel by mutableStateOf(store.model)
     var busy by mutableStateOf(false)
+    var status by mutableStateOf("")
     var error by mutableStateOf<String?>(null)
     private var job: Job? = null
 
@@ -61,11 +62,12 @@ class VM(app: Application) : AndroidViewModel(app) {
         job = viewModelScope.launch(Dispatchers.IO) {
             var out: String? = null
             try {
-                val tools = if (store.agent && AgentService.inst != null) Tools.defs else null
+                val tools = if (store.agent) Tools.defs() else null
                 var step = 0
                 while (true) {
                     coroutineContext.ensureActive()
                     val i = c.msgs.size
+                    status = "思考中"
                     c.msgs.add(msg("assistant", ""))
                     val r = Api.stream(store.baseUrl, store.apiKey, store.model, request(c), tools) {
                         c.msgs[i] = msg("assistant", it)
@@ -77,12 +79,16 @@ class VM(app: Application) : AndroidViewModel(app) {
                     }
                     val arr = JSONArray()
                     r.calls.forEach {
-                        arr.put(JSONObject().put("id", it.id).put("type", "function")
-                            .put("function", JSONObject().put("name", it.name).put("arguments", it.args)))
+                        val o = JSONObject().put("id", it.id).put("type", "function")
+                            .put("function", JSONObject().put("name", it.name).put("arguments", it.args))
+                        if (it.extra != null) o.put("extra_content", it.extra)
+                        arr.put(o)
                     }
                     c.msgs[i] = msg("assistant", r.text).put("tool_calls", arr)
                     AgentService.inst?.showOverlay { stop() }
                     for (call in r.calls) {
+                        coroutineContext.ensureActive()
+                        status = Tools.label(call.name)
                         val res = Tools.run(call.name, call.args)
                         c.msgs.add(JSONObject().put("role", "tool").put("tool_call_id", call.id)
                             .put("name", call.name).put("content", res))
@@ -105,6 +111,7 @@ class VM(app: Application) : AndroidViewModel(app) {
                     last.optString("content").isBlank() && !last.has("tool_calls")
                 ) c.msgs.removeAt(c.msgs.lastIndex)
                 busy = false
+                status = ""
                 store.saveChats(chats)
                 withContext(NonCancellable + Dispatchers.Main) { done(out) }
             }

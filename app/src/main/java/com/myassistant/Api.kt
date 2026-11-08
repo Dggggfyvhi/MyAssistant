@@ -12,7 +12,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-class ToolCall(val id: String, val name: String, val args: String)
+class ToolCall(val id: String, val name: String, val args: String, val extra: JSONObject? = null)
 class Reply(val text: String, val calls: List<ToolCall>)
 
 object Api {
@@ -53,7 +53,23 @@ object Api {
         } catch (e: Exception) { "✗ ${e.message}" }
     }
 
-    private class Acc { val id = StringBuilder(); val name = StringBuilder(); val args = StringBuilder() }
+    /** 用支持音频输入的模型（如 Gemini）把一段 wav 转成文字。 */
+    fun transcribe(base: String, key: String, model: String, wav: ByteArray): String {
+        val b64 = android.util.Base64.encodeToString(wav, android.util.Base64.NO_WRAP)
+        val content = JSONArray()
+            .put(JSONObject().put("type", "text").put("text", "请逐字转写这段音频里说的话，只输出转写出的文字，不要解释。没有人说话就输出空。"))
+            .put(JSONObject().put("type", "input_audio").put("input_audio", JSONObject().put("data", b64).put("format", "wav")))
+        val body = JSONObject().put("model", model)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+        return http.newCall(req(base, key, "/chat/completions").post(body.toString().toRequestBody(JSON)).build()).execute().use { r ->
+            val s = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw IOException("${r.code} ${s.take(160)}")
+            val m = JSONObject(s).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+            if (m.isNull("content")) "" else m.getString("content").trim()
+        }
+    }
+
+    private class Acc { val id = StringBuilder(); val name = StringBuilder(); val args = StringBuilder(); var extra: JSONObject? = null }
 
     fun stream(
         base: String, key: String, model: String,
@@ -85,6 +101,7 @@ object Api {
                     val t = tcs.getJSONObject(k)
                     val a = acc.getOrPut(t.optInt("index", k)) { Acc() }
                     if (!t.isNull("id") && a.id.isEmpty()) a.id.append(t.getString("id"))
+                    t.optJSONObject("extra_content")?.let { a.extra = it }
                     val f = t.optJSONObject("function")
                     if (f != null) {
                         if (!f.isNull("name") && a.name.isEmpty()) a.name.append(f.getString("name"))
@@ -95,7 +112,7 @@ object Api {
             Reply(sb.toString(), acc.values.filter { it.name.isNotEmpty() }.map {
                 ToolCall(
                     it.id.toString().ifEmpty { "call_" + UUID.randomUUID().toString().take(8) },
-                    it.name.toString(), it.args.toString().ifEmpty { "{}" }
+                    it.name.toString(), it.args.toString().ifEmpty { "{}" }, it.extra
                 )
             })
         }

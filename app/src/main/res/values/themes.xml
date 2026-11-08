@@ -1,5 +1,5 @@
 <resources>
     <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:windowBackground">@color/launch_bg</item>
     </style>
 </resources>

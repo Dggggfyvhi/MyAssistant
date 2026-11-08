@@ -30,6 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Tools.ctx = applicationContext
         setContent { AppTheme { Root(vm) } }
     }
 }
@@ -37,7 +38,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Root(vm: VM) {
     val ctx = LocalContext.current
-    val voice = remember { Voice(ctx.applicationContext).also { it.init() } }
+    val voice = remember { Voice(ctx.applicationContext, vm.store).also { it.init() } }
     DisposableEffect(Unit) { onDispose { voice.shutdown() } }
     var settings by remember { mutableStateOf(false) }
     var inVoice by remember { mutableStateOf(false) }

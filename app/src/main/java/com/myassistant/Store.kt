@@ -8,9 +8,10 @@ import androidx.compose.runtime.setValue
 import org.json.JSONArray
 import org.json.JSONObject
 
-const val DEFAULT_SYSTEM = "你是“我的助手”，运行在用户的 Android 手机上，回答简洁、直接，使用中文。" +
-    "当任务需要操作手机时：先在心里把任务拆解成步骤，然后一步一步调用工具；每次操作之后调用 read_screen 确认结果，不要凭空猜测界面内容。" +
-    "遇到登录、验证码、支付、输入密码等敏感步骤，停下来请用户自己完成。任务完成后用一两句话汇报结果。"
+const val DEFAULT_SYSTEM = "你是“我的助手”，运行在用户的 Android 手机上，回答简洁直接，使用中文。" +
+    "需要操作手机时：先在心里把任务拆成步骤，再一步一步调用工具；每次操作之后调用 read_screen 确认结果，不要凭空猜测界面。" +
+    "能用 open_app、set_alarm 这类直接工具时优先用它们。遇到登录、验证码、支付、输入密码和系统设置等敏感步骤，停下来请用户自己完成。" +
+    "shell 工具只用于查询或必要的轻量操作，不要执行删除、卸载、重启等破坏性命令。任务完成后用一两句话汇报结果。"
 
 class Chat(val id: String, title: String) {
     var title by mutableStateOf(title)
@@ -39,6 +40,10 @@ class Store(ctx: Context) {
     var agent: Boolean
         get() = sp.getBoolean("agent", true)
         set(v) { sp.edit().putBoolean("agent", v).apply() }
+
+    var stt: String
+        get() = s("stt", "model")
+        set(v) { sp.edit().putString("stt", v).apply() }
 
     fun configured() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank()
 
