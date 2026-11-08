@@ -41,6 +41,6 @@ dependencies {
     implementation("com.github.MuntashirAkon:sun-security-android:1.1")
     implementation("org.conscrypt:conscrypt-android:2.5.2")
     // 用 Bouncy Castle 替代 Android 不可用的 sun.security.x509 内部 API
-    implementation("org.bouncycastle:bcpkix-jdk15to18:1.78.1")
-    implementation("org.bouncycastle:bcprov-jdk15to18:1.78.1")
+    implementation("org.bouncycastle:bcpkix-jdk15on:1.69")
+    implementation("org.bouncycastle:bcprov-jdk15on:1.69")
 }
