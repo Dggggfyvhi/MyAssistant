@@ -4,34 +4,12 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -44,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -64,84 +41,58 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-// ───────────────────────── Theme & Glass ─────────────────────────
+// ───────────────────────── Theme（跟随系统，默认偏浅色） ─────────────────────────
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
-    val dark = true // Prefer dark for liquid glass
+    val dark = isSystemInDarkTheme()
     val cs = if (dark) darkColorScheme(
         primary = Color(0xFF8AB4F8),
         onPrimary = Color(0xFF0B1C2E),
         secondary = Color(0xFF81C995),
-        background = Color(0xFF0D0E12),
-        surface = Color(0xFF16181F),
-        surfaceVariant = Color(0xFF1E2029),
+        background = Color(0xFF121212),
+        surface = Color(0xFF1E1E1E),
+        surfaceVariant = Color(0xFF2C2C2C),
         onBackground = Color(0xFFE8EAED),
         onSurface = Color(0xFFE8EAED),
         onSurfaceVariant = Color(0xFF9AA0A6),
         outline = Color(0xFF3C4043),
-        outlineVariant = Color(0xFF2A2D35),
+        outlineVariant = Color(0xFF444746),
         error = Color(0xFFF28B82)
-    ) else lightColorScheme()
-    MaterialTheme(colorScheme = cs, content = content)
-}
-
-val LocalHaze = compositionLocalOf<HazeState?> { null }
-
-@Composable
-fun Modifier.glass(shape: Shape = RoundedCornerShape(20.dp)): Modifier {
-    val haze = LocalHaze.current
-    val tint = Color(0xFF1E2029).copy(alpha = 0.55f)
-    val edge = Brush.linearGradient(
-        listOf(Color.White.copy(0.18f), Color.White.copy(0.04f), Color.White.copy(0.12f))
+    ) else lightColorScheme(
+        primary = Color(0xFF1A73E8),
+        onPrimary = Color.White,
+        secondary = Color(0xFF188038),
+        background = Color(0xFFF8F9FA),
+        surface = Color.White,
+        surfaceVariant = Color(0xFFF1F3F4),
+        onBackground = Color(0xFF202124),
+        onSurface = Color(0xFF202124),
+        onSurfaceVariant = Color(0xFF5F6368),
+        outline = Color(0xFFDADCE0),
+        outlineVariant = Color(0xFFE8EAED),
+        error = Color(0xFFD93025)
     )
-    var m = this
-        .shadow(elevation = 12.dp, shape = shape, ambientColor = Color(0x33000000), spotColor = Color(0x44000000))
-        .clip(shape)
-    if (haze != null) {
-        m = m.hazeEffect(state = haze, style = dev.chrisbanes.haze.HazeStyle(
-            backgroundColor = tint,
-            tint = null,
-            blurRadius = 24.dp,
-            noiseFactor = 0.02f
-        ))
-    } else {
-        m = m.background(tint)
-    }
-    return m.border(0.6.dp, edge, shape)
-}
-
-@Composable
-fun Ambient() {
-    Canvas(Modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
-        fun blob(cx: Float, cy: Float, r: Float, c: Color) {
-            drawCircle(brush = Brush.radialGradient(listOf(c, Color.Transparent), center = Offset(cx, cy), radius = r), radius = r, center = Offset(cx, cy))
-        }
-        blob(w * 0.15f, h * 0.12f, w * 0.55f, Color(0xFF3B6FE8).copy(0.22f))
-        blob(w * 0.85f, h * 0.25f, w * 0.48f, Color(0xFF8B5CF6).copy(0.18f))
-        blob(w * 0.5f, h * 0.85f, w * 0.6f, Color(0xFF06B6D4).copy(0.12f))
-    }
+    MaterialTheme(colorScheme = cs, content = content)
 }
 
 @Composable
 fun CircleBtn(
-    icon: ImageVector, contentDesc: String, size: Dp = 44.dp,
+    icon: ImageVector, contentDesc: String, size: Dp = 40.dp,
     solid: Color? = null, fg: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit
 ) {
-    val base = Modifier.size(size)
-    val m = if (solid == null) base.glass(CircleShape) else base.clip(CircleShape).background(solid)
-    Box(m.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDesc, tint = fg, modifier = Modifier.size(size * 0.48f))
+    val cs = MaterialTheme.colorScheme
+    val bg = solid ?: cs.surfaceVariant.copy(alpha = 0.8f)
+    Box(
+        Modifier.size(size).clip(CircleShape).background(bg).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDesc, tint = if (solid != null) fg else cs.onSurface, modifier = Modifier.size(size * 0.5f))
     }
 }
 
@@ -151,9 +102,10 @@ fun PillBtn(text: String, modifier: Modifier = Modifier, filled: Boolean = false
     val shape = RoundedCornerShape(999.dp)
     Box(
         modifier
-            .then(if (filled) Modifier.background(cs.primary, shape) else Modifier.glass(shape))
+            .clip(shape)
+            .background(if (filled) cs.primary else cs.surfaceVariant)
             .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(text, color = if (filled) cs.onPrimary else cs.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -195,12 +147,12 @@ fun Markdown(text: String) {
             if (idx % 2 == 1) {
                 val code = part.substringAfter('\n', part).trimEnd()
                 Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                        .background(cs.onSurface.copy(alpha = 0.07f))
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .background(cs.surfaceVariant)
                         .horizontalScroll(rememberScrollState()).padding(12.dp)
                 ) { Text(code, fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp) }
             } else if (part.isNotBlank()) {
-                Text(mdInline(part.trim('\n'), cs.onSurface.copy(alpha = 0.10f)), fontSize = 15.5.sp, lineHeight = 24.sp)
+                Text(mdInline(part.trim('\n'), cs.surfaceVariant), fontSize = 15.5.sp, lineHeight = 24.sp)
             }
         }
     }
@@ -216,114 +168,49 @@ fun Dots() {
                 animationSpec = infiniteRepeatable(tween(500, delayMillis = i * 160), RepeatMode.Reverse),
                 label = "d$i"
             )
-            Box(Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = a)))
+            Box(Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = a)))
         }
     }
 }
 
-// ───────────────────────── Message Bubbles ─────────────────────────
-
-@Composable
-fun ThinkingCard(status: String) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(cs.surfaceVariant.copy(alpha = 0.7f))
-            .border(0.5.dp, cs.outlineVariant.copy(0.6f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Dots()
-        Spacer(Modifier.width(12.dp))
-        Text(
-            if (status.isNotBlank()) status else "思考中…",
-            fontSize = 13.5.sp,
-            color = cs.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
+// ───────────────────────── Bubbles ─────────────────────────
 
 @Composable
 fun Bubble(m: JSONObject) {
     val cs = MaterialTheme.colorScheme
     val text = m.optString("content")
-    val role = m.optString("role")
-    when (role) {
+    when (m.optString("role")) {
         "user" -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            val shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
+            val shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
             Box(
                 Modifier
                     .padding(start = 48.dp)
                     .clip(shape)
-                    .background(Brush.linearGradient(listOf(Color(0xFF5B8DEF), Color(0xFF3B6FE8))))
-                    .border(0.5.dp, Color.White.copy(alpha = 0.25f), shape)
+                    .background(cs.primary)
             ) {
                 Text(
                     text,
-                    Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-                    color = Color.White,
+                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    color = cs.onPrimary,
                     fontSize = 15.5.sp,
-                    lineHeight = 23.sp
+                    lineHeight = 22.sp
                 )
             }
         }
         "assistant" -> if (text.isNotBlank()) {
-            Column(Modifier.fillMaxWidth().padding(end = 24.dp)) {
-                // Optional reasoning / thinking block if model put it in content with markers
-                val thinkMatch = Regex("""(?s)<think>(.*?)</think>|<reasoning>(.*?)</reasoning>""").find(text)
-                val mainText = if (thinkMatch != null) {
-                    text.replace(thinkMatch.value, "").trim()
-                } else text
-                if (thinkMatch != null) {
-                    val thinkBody = (thinkMatch.groupValues.getOrNull(1) ?: thinkMatch.groupValues.getOrNull(2) ?: "").trim()
-                    if (thinkBody.isNotBlank()) {
-                        var expanded by remember { mutableStateOf(false) }
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(cs.surfaceVariant.copy(0.5f))
-                                .border(0.5.dp, cs.outlineVariant.copy(0.5f), RoundedCornerShape(14.dp))
-                                .clickable { expanded = !expanded }
-                                .padding(12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Psychology, null, tint = cs.primary, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("思考过程", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = cs.primary)
-                                Spacer(Modifier.weight(1f))
-                                Icon(
-                                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            if (expanded) {
-                                Spacer(Modifier.height(8.dp))
-                                Text(thinkBody, fontSize = 13.sp, color = cs.onSurfaceVariant, lineHeight = 20.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-                SelectionContainer { Markdown(mainText) }
-            }
+            SelectionContainer { Markdown(text) }
         }
         "tool" -> Row(
             Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(cs.surface.copy(alpha = 0.75f))
-                .border(0.5.dp, cs.outlineVariant, RoundedCornerShape(12.dp))
-                .padding(horizontal = 10.dp, vertical = 7.dp),
+                .clip(RoundedCornerShape(10.dp))
+                .background(cs.surfaceVariant)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(6.dp).clip(CircleShape).background(cs.secondary))
             Spacer(Modifier.width(8.dp))
             Text(
-                Tools.label(m.optString("name")) + " · " + text.replace('\n', ' ').take(56),
+                Tools.label(m.optString("name")) + " · " + text.replace('\n', ' ').take(48),
                 fontSize = 12.sp, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
@@ -333,219 +220,123 @@ fun Bubble(m: JSONObject) {
 @Composable
 private fun DrawerItem(icon: ImageVector, label: String, selected: Boolean = false, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val bg = if (selected) cs.primary.copy(0.15f) else Color.Transparent
+    val bg = if (selected) cs.primary.copy(0.12f) else Color.Transparent
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = if (selected) cs.primary else cs.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = if (selected) cs.primary else cs.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Text(label, fontSize = 15.sp, color = if (selected) cs.primary else cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-// ───────────────────────── Home (ChatGPT-style) ─────────────────────────
+// ───────────────────────── Home（贴近原版） ─────────────────────────
 
 @Composable
 fun Home(vm: VM, openSettings: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val haze = remember { HazeState() }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
-    val topPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val botPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    CompositionLocalProvider(LocalHaze provides haze) {
-        ModalNavigationDrawer(
-            drawerState = drawer,
-            drawerContent = {
-                ModalDrawerSheet(
-                    drawerContainerColor = Color.Transparent,
-                    drawerContentColor = cs.onBackground,
-                    modifier = Modifier.fillMaxHeight().widthIn(max = 300.dp)
+    ModalNavigationDrawer(
+        drawerState = drawer,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = cs.surface,
+                drawerContentColor = cs.onSurface,
+                modifier = Modifier.fillMaxHeight().widthIn(max = 300.dp)
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(16.dp)
                 ) {
-                    Box(Modifier.fillMaxSize()) {
-                        Box(Modifier.fillMaxSize().hazeSource(haze)) { Ambient() }
-                        Column(
-                            Modifier
-                                .fillMaxSize()
-                                .statusBarsPadding()
-                                .padding(16.dp)
-                        ) {
-                            Text("对话", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
-                            PillBtn("＋ 新对话", filled = true, modifier = Modifier.fillMaxWidth()) {
-                                vm.newChat()
-                                scope.launch { drawer.close() }
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items(vm.chats, key = { it.id }) { c ->
-                                    DrawerItem(
-                                        Icons.Rounded.ChatBubbleOutline,
-                                        c.title.ifBlank { "新对话" },
-                                        selected = c === vm.cur
-                                    ) {
-                                        vm.open(c)
-                                        scope.launch { drawer.close() }
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            DrawerItem(Icons.Rounded.Settings, "设置") {
-                                openSettings()
+                    Text("对话", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+                    PillBtn("＋ 新对话", filled = true, modifier = Modifier.fillMaxWidth()) {
+                        vm.newChat()
+                        scope.launch { drawer.close() }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        items(vm.chats, key = { it.id }) { c ->
+                            DrawerItem(
+                                Icons.Rounded.ChatBubbleOutline,
+                                c.title.ifBlank { "新对话" },
+                                selected = c === vm.cur
+                            ) {
+                                vm.open(c)
                                 scope.launch { drawer.close() }
                             }
                         }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    DrawerItem(Icons.Rounded.Settings, "设置") {
+                        openSettings()
+                        scope.launch { drawer.close() }
                     }
                 }
             }
-        ) {
-            Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize().hazeSource(haze)) { Ambient() }
-                Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                    // Top bar
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircleBtn(Icons.Rounded.Menu, "菜单") { scope.launch { drawer.open() } }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                vm.cur.title.ifBlank { "我的助手" },
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (vm.modelLabel.isNotBlank()) {
-                                Text(vm.modelLabel, fontSize = 12.sp, color = cs.onSurfaceVariant, maxLines = 1)
-                            }
-                        }
-                        if (vm.busy) {
-                            CircleBtn(Icons.Rounded.Stop, "停止", solid = cs.error, fg = Color.White) { vm.stop() }
-                        } else {
-                            CircleBtn(Icons.Rounded.Settings, "设置") { openSettings() }
+        }
+    ) {
+        Scaffold(
+            containerColor = cs.background,
+            topBar = {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircleBtn(Icons.Rounded.Menu, "菜单") { scope.launch { drawer.open() } }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            vm.cur.title.ifBlank { "我的助手" },
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (vm.modelLabel.isNotBlank()) {
+                            Text(vm.modelLabel, fontSize = 12.sp, color = cs.onSurfaceVariant, maxLines = 1)
                         }
                     }
-
-                    // Messages
-                    val msgs = vm.cur.msgs
-                    val ls = rememberLazyListState()
-                    val last = msgs.lastOrNull()
-                    val thinking = vm.busy && (last == null || last.optString("role") != "assistant" || last.optString("content").isBlank())
-
-                    LaunchedEffect(msgs.size, vm.busy, vm.status) {
-                        if (msgs.isNotEmpty() || thinking) {
-                            ls.animateScrollToItem(maxOf(0, msgs.size + if (thinking) 0 else -1))
-                        }
+                    if (vm.busy) {
+                        CircleBtn(Icons.Rounded.Stop, "停止", solid = cs.error, fg = Color.White) { vm.stop() }
+                    } else {
+                        CircleBtn(Icons.Rounded.Settings, "设置") { openSettings() }
                     }
-
-                    LazyColumn(
-                        state = ls,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        if (msgs.isEmpty() && !vm.busy) {
-                            item {
-                                Box(Modifier.fillMaxWidth().height(420.dp), contentAlignment = Alignment.Center) {
-                                    // soft edge glow
-                                    Canvas(Modifier.fillMaxSize()) {
-                                        val w = size.width
-                                        val h = size.height
-                                        drawCircle(
-                                            brush = Brush.radialGradient(
-                                                listOf(Color(0xFF5B8DEF).copy(0.18f), Color.Transparent),
-                                                center = Offset(w * 0.5f, h * 0.42f),
-                                                radius = w * 0.55f
-                                            ),
-                                            radius = w * 0.55f,
-                                            center = Offset(w * 0.5f, h * 0.42f)
-                                        )
-                                        drawCircle(
-                                            brush = Brush.radialGradient(
-                                                listOf(Color(0xFF8B5CF6).copy(0.12f), Color.Transparent),
-                                                center = Offset(w * 0.7f, h * 0.55f),
-                                                radius = w * 0.4f
-                                            ),
-                                            radius = w * 0.4f,
-                                            center = Offset(w * 0.7f, h * 0.55f)
-                                        )
-                                    }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 32.dp)) {
-                                        // large logo orb
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(96.dp)) {
-                                            Canvas(Modifier.fillMaxSize()) {
-                                                val r = size.minDimension / 2
-                                                drawCircle(
-                                                    brush = Brush.radialGradient(
-                                                        listOf(Color(0xFFFFFFFF), Color(0xFFB8D4FF), Color(0xFF5B8DEF), Color(0xFF2A52C9)),
-                                                        center = Offset(r * 0.75f, r * 0.7f),
-                                                        radius = r * 1.15f
-                                                    ),
-                                                    radius = r * 0.82f
-                                                )
-                                                drawCircle(Color.White.copy(0.55f), radius = r * 0.28f, center = Offset(r * 0.72f, r * 0.68f))
-                                            }
-                                        }
-                                        Spacer(Modifier.height(28.dp))
-                                        val greetings = listOf(
-                                            "今天想做什么？",
-                                            "有什么可以帮你的？",
-                                            "准备好了，开始吧",
-                                            "想聊点什么，或者让我帮你办事？",
-                                            "我在这儿，随时待命"
-                                        )
-                                        val greeting = remember { greetings.random() }
-                                        Text(
-                                            greeting,
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textAlign = TextAlign.Center,
-                                            color = cs.onBackground
-                                        )
-                                        Spacer(Modifier.height(12.dp))
-                                        Text(
-                                            if (vm.store.configured()) "直接输入问题，或让我帮你操作手机"
-                                            else "先去设置里配置 API 和模型，然后就可以开始聊天了",
-                                            textAlign = TextAlign.Center,
-                                            color = cs.onSurfaceVariant,
-                                            fontSize = 14.sp,
-                                            lineHeight = 21.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        items(msgs, key = { it.toString().hashCode() }) { m ->
-                            Bubble(m)
-                        }
-                        if (thinking) {
-                            item { ThinkingCard(vm.status) }
-                        }
-                    }
-
-                    // Status / error
+                }
+            },
+            bottomBar = {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .background(cs.surface)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
                     vm.error?.let {
-                        Text(it, color = cs.error, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        Text(it, color = cs.error, fontSize = 13.sp, modifier = Modifier.padding(bottom = 6.dp))
                     }
-
-                    // Input bar — GPT style glass
+                    // 原生风格输入框：白底 + 细边框 + 圆角，贴底
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                            .glass(RoundedCornerShape(28.dp))
-                            .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                            .shadow(2.dp, RoundedCornerShape(24.dp))
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(cs.surface)
+                            .border(1.dp, cs.outline.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
+                            .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         BasicTextField(
@@ -554,7 +345,7 @@ fun Home(vm: VM, openSettings: () -> Unit) {
                             modifier = Modifier.weight(1f),
                             textStyle = TextStyle(color = cs.onSurface, fontSize = 16.sp),
                             cursorBrush = SolidColor(cs.primary),
-                            maxLines = 6,
+                            maxLines = 5,
                             decorationBox = { inner ->
                                 Box(Modifier.heightIn(min = 40.dp), contentAlignment = Alignment.CenterStart) {
                                     if (text.isEmpty()) Text("发送消息…", color = cs.onSurfaceVariant, fontSize = 16.sp)
@@ -572,7 +363,7 @@ fun Home(vm: VM, openSettings: () -> Unit) {
                                 }
                             },
                             enabled = canSend,
-                            modifier = Modifier.size(42.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 Icons.Rounded.Send,
@@ -583,20 +374,98 @@ fun Home(vm: VM, openSettings: () -> Unit) {
                     }
                 }
             }
+        ) { padding ->
+            val msgs = vm.cur.msgs
+            val ls = rememberLazyListState()
+            val last = msgs.lastOrNull()
+            val thinking = vm.busy && (last == null || last.optString("role") != "assistant" || last.optString("content").isBlank())
+
+            LaunchedEffect(msgs.size, vm.busy) {
+                if (msgs.isNotEmpty() || thinking) {
+                    ls.animateScrollToItem(maxOf(0, msgs.size))
+                }
+            }
+
+            LazyColumn(
+                state = ls,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (msgs.isEmpty() && !vm.busy) {
+                    item {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 72.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // 简单干净的 Logo 圆
+                            Box(
+                                Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(cs.primary.copy(0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(cs.primary)
+                                )
+                            }
+                            Spacer(Modifier.height(20.dp))
+                            Text("我的助手", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                if (vm.store.configured()) "有什么可以帮你的？"
+                                else "先去设置里配置 API 和模型",
+                                color = cs.onSurfaceVariant,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                }
+                items(msgs, key = { it.toString().hashCode() }) { m ->
+                    Bubble(m)
+                }
+                if (thinking) {
+                    item {
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(cs.surfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Dots()
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                if (vm.status.isNotBlank()) vm.status else "思考中…",
+                                fontSize = 13.sp,
+                                color = cs.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
-// ───────────────────────── Settings helpers ─────────────────────────
+// ───────────────────────── Settings ─────────────────────────
 
 @Composable
 private fun Group(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(0.55f))
-            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(0.5f), RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(0.5f), RoundedCornerShape(14.dp))
             .padding(4.dp),
         content = content
     )
@@ -604,14 +473,26 @@ private fun Group(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun SectionTitle(t: String) {
-    Text(t, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 8.dp))
+    Text(
+        t,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 8.dp)
+    )
 }
 
 @Composable
-private fun Line() = HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 0.5.dp)
+private fun Line() = HorizontalDivider(
+    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+    thickness = 0.5.dp
+)
 
 @Composable
-private fun Field(label: String, value: String, hint: String = "", password: Boolean = false, single: Boolean = true, onChange: (String) -> Unit) {
+private fun Field(
+    label: String, value: String, hint: String = "",
+    password: Boolean = false, single: Boolean = true, onChange: (String) -> Unit
+) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
         Text(label, fontSize = 12.sp, color = cs.onSurfaceVariant)
@@ -635,7 +516,10 @@ private fun Field(label: String, value: String, hint: String = "", password: Boo
 
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, Modifier.weight(1f), fontSize = 15.sp)
         Switch(checked = checked, onCheckedChange = onChange)
     }
@@ -643,7 +527,13 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 
 @Composable
 private fun Hint(t: String) {
-    Text(t, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, lineHeight = 18.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+    Text(
+        t,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -653,7 +543,6 @@ fun SettingsScreen(vm: VM, onBack: () -> Unit) {
     val st = vm.store
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val haze = remember { HazeState() }
     var base by remember { mutableStateOf(st.baseUrl) }
     var key by remember { mutableStateOf(st.apiKey) }
     var model by remember { mutableStateOf(st.model) }
@@ -669,101 +558,146 @@ fun SettingsScreen(vm: VM, onBack: () -> Unit) {
 
     fun go(intent: Intent) {
         try { ctx.startActivity(intent) } catch (e: Exception) {
-            try { ctx.startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (e2: Exception) { }
+            try { ctx.startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
         }
     }
 
-    CompositionLocalProvider(LocalHaze provides haze) {
-        Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().hazeSource(haze)) { Ambient() }
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(16.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CircleBtn(Icons.Rounded.ArrowBack, "返回") { onBack() }
-                    Spacer(Modifier.width(12.dp))
-                    Text("设置", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+    Scaffold(
+        containerColor = cs.background,
+        topBar = {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(16.dp, 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircleBtn(Icons.Rounded.ArrowBack, "返回") { onBack() }
+                Spacer(Modifier.width(12.dp))
+                Text("设置", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item {
+                SectionTitle("模型接口（OpenAI 兼容）")
+                Group {
+                    Field("API 地址", base, "https://api.example.com/v1") { base = it; st.baseUrl = it }
+                    Line()
+                    Field("API Key", key, "sk-", password = true) { key = it; st.apiKey = it }
+                    Line()
+                    Field("模型名称", model, "点下面“获取模型列表”自动填入") { model = it; st.model = it; vm.modelLabel = it }
                 }
-                LazyColumn(
-                    Modifier.weight(1f).padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = 32.dp)
-                ) {
-                    item {
-                        SectionTitle("模型接口（OpenAI 兼容）")
-                        Group {
-                            Field("API 地址", base, "https://api.example.com/v1") { base = it; st.baseUrl = it }
-                            Line()
-                            Field("API Key", key, "sk-", password = true) { key = it; st.apiKey = it }
-                            Line()
-                            Field("模型名称", model, "点下面“获取模型列表”自动填入") { model = it; st.model = it; vm.modelLabel = it }
+                Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PillBtn(if (busy) "请稍候…" else "测试连接") {
+                        if (busy) return@PillBtn
+                        if (model.isBlank()) { ok = false; status = "✗ 请先填写模型名称，或点“获取模型列表”"; return@PillBtn }
+                        busy = true; status = "测试中…"
+                        scope.launch {
+                            val r = withContext(Dispatchers.IO) { Api.test(base, key, model) }
+                            ok = r.startsWith("✓"); status = r; busy = false
                         }
-                        Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            PillBtn(if (busy) "请稍候…" else "测试连接") {
-                                if (busy) return@PillBtn
-                                if (model.isBlank()) { ok = false; status = "✗ 请先填写模型名称，或点“获取模型列表”"; return@PillBtn }
-                                busy = true; status = "测试中…"
-                                scope.launch {
-                                    val r = withContext(Dispatchers.IO) { Api.test(base, key, model) }
-                                    ok = r.startsWith("✓"); status = r; busy = false
+                    }
+                    PillBtn("获取模型列表") {
+                        if (busy) return@PillBtn
+                        busy = true; status = "获取中…"
+                        scope.launch {
+                            try {
+                                val l = withContext(Dispatchers.IO) { Api.models(base, key) }
+                                models = l; ok = true; status = "✓ 获取到 ${l.size} 个模型"
+                                if (model.isBlank() && l.isNotEmpty()) {
+                                    model = l.first(); st.model = model; vm.modelLabel = model
                                 }
-                            }
-                            PillBtn("获取模型列表") {
-                                if (busy) return@PillBtn
-                                busy = true; status = "获取中…"
-                                scope.launch {
-                                    try {
-                                        val l = withContext(Dispatchers.IO) { Api.models(base, key) }
-                                        models = l; ok = true; status = "✓ 获取到 ${l.size} 个模型"
-                                        if (model.isBlank() && l.isNotEmpty()) { model = l.first(); st.model = model; vm.modelLabel = model }
-                                    } catch (e: Exception) { ok = false; status = "✗ ${e.message}" }
-                                    busy = false
-                                }
-                            }
+                            } catch (e: Exception) { ok = false; status = "✗ ${e.message}" }
+                            busy = false
                         }
-                        if (status.isNotEmpty()) Text(status, color = if (ok) cs.primary else cs.error, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
-                        if (models.isNotEmpty()) {
-                            val shown = (if (models.contains(model)) models else models.filter { model.isBlank() || it.contains(model, true) }).take(30)
-                            FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                shown.forEach { m ->
-                                    val sel = m == model
-                                    Box(
-                                        Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(if (sel) cs.primary else cs.surfaceVariant)
-                                            .clickable { model = m; st.model = m; vm.modelLabel = m }
-                                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(m, fontSize = 12.sp, color = if (sel) cs.onPrimary else cs.onSurface, maxLines = 1)
-                                    }
-                                }
+                    }
+                }
+                if (status.isNotEmpty()) {
+                    Text(
+                        status,
+                        color = if (ok) cs.primary else cs.error,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                    )
+                }
+                if (models.isNotEmpty()) {
+                    val shown = (if (models.contains(model)) models else models.filter {
+                        model.isBlank() || it.contains(model, true)
+                    }).take(30)
+                    FlowRow(
+                        Modifier.padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        shown.forEach { m ->
+                            val sel = m == model
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(if (sel) cs.primary else cs.surfaceVariant)
+                                    .clickable { model = m; st.model = m; vm.modelLabel = m }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(m, fontSize = 12.sp, color = if (sel) cs.onPrimary else cs.onSurface, maxLines = 1)
                             }
                         }
                     }
+                }
+            }
 
-                    item {
-                        SectionTitle("系统提示词")
-                        Group {
-                            Field("System Prompt", sys, single = false) { sys = it; st.system = it }
+            item {
+                SectionTitle("系统提示词")
+                Group {
+                    Field("System Prompt", sys, single = false) { sys = it; st.system = it }
+                }
+                Hint("控制助手人设与行为。Agent 模式下会自动追加工具使用规则。")
+            }
+
+            item {
+                SectionTitle("Agent 能力")
+                Group {
+                    SwitchRow("启用 Agent（工具调用）", agent) { agent = it; st.agent = it }
+                }
+                Hint("开启后可调用读屏、点击、打开应用/网页等。需要先开启无障碍服务。")
+            }
+
+            item {
+                SectionTitle("无障碍服务")
+                Group {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (a11y) "已开启" else "未开启", fontSize = 15.sp)
+                            Text("用于读屏与手势操作", fontSize = 12.sp, color = cs.onSurfaceVariant)
                         }
-                        Hint("控制助手人设与行为。Agent 模式下会自动追加工具使用规则。")
+                        PillBtn(if (a11y) "已开启" else "去开启") {
+                            go(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }
                     }
+                }
+            }
 
-                    item {
-                        SectionTitle("Agent 能力")
-                        Group {
-                            SwitchRow("启用 Agent（工具调用）", agent) { agent = it; st.agent = it }
-                        }
-                        Hint("开启后模型可调用读屏、点击、打开应用/网页、滚动等工具。需要先开启无障碍服务。")
-                    }
-
-                    item {
-                        SectionTitle("关于")
-                        Group {
-                            Column(Modifier.padding(14.dp)) {
-                                Text("我的助手 · AI 聊天 + Agent", fontSize = 15.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text("深色液态玻璃界面。已移除语音与无线调试。开启无障碍即可使用手机操控能力。", fontSize = 12.5.sp, color = cs.onSurfaceVariant, lineHeight = 18.sp)
-                            }
-                        }
+            item {
+                SectionTitle("关于")
+                Group {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("我的助手", fontSize = 15.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "已移除语音与无线调试。开启无障碍即可使用 Agent。",
+                            fontSize = 12.5.sp,
+                            color = cs.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
             }

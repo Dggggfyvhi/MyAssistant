@@ -10,8 +10,8 @@ android {
         applicationId = "com.myassistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.0"
+        versionCode = 4
+        versionName = "3.1"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -34,6 +34,4 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    // 真正的背景模糊（玻璃效果）
-    implementation("dev.chrisbanes.haze:haze:1.7.2")
 }
