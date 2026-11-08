@@ -49,9 +49,9 @@ object Tools {
 
     private val blocked = Regex("""(rm\s+-[a-z]*r|reboot|poweroff|\bsu\b|pm\s+(uninstall|clear|disable)|\bdd\s+if=|mkfs|setprop|settings\s+put\s+global\s+adb|wipe)""")
 
-    /** 没有任何可用通道（无障碍 / 无线调试）时，仍然提供不依赖它们的基础工具。 */
+    /** 无障碍开启时提供完整屏幕操控工具；否则只提供基础工具。 */
     fun defs(): JSONArray {
-        val screen = AgentService.inst != null || AdbMgr.isUp()
+        val screen = AgentService.inst != null
         return JSONArray().apply {
             if (screen) {
                 put(t("read_screen", "读取当前屏幕上的可见元素，返回带编号 [id] 的列表（文字、描述、是否可点击或可输入、中心坐标）。每次操作之后都要调用它确认结果。"))
@@ -69,8 +69,6 @@ object Tools {
                 .put("label", p("string", "闹钟名称")), listOf("hour", "minute")))
             put(t("get_datetime", "获取手机当前的日期、星期和时间"))
             put(t("wait", "等待若干秒让页面加载", JSONObject().put("seconds", p("integer", "1 到 10")), listOf("seconds")))
-            if (AdbMgr.isUp()) put(t("shell", "通过无线调试在手机上执行一条 shell 命令并返回输出，只用于查询或轻量操作",
-                JSONObject().put("command", p("string", "shell 命令")), listOf("command")))
         }
     }
 
@@ -90,21 +88,12 @@ object Tools {
                     (svc ?: c).startActivity(i)
                     "已设置闹钟 ${a.optInt("hour")}:${"%02d".format(a.optInt("minute"))}"
                 }
-                "shell" -> {
-                    val cmd = a.optString("command")
-                    when {
-                        !AdbMgr.isUp() -> "无线调试未连接"
-                        blocked.containsMatchIn(cmd) -> "该命令有风险，已拒绝执行。"
-                        else -> AdbMgr.shell(c, cmd).ifBlank { "（无输出）" }
-                    }
-                }
                 else -> when {
                     svc != null -> viaSvc(svc, name, a)
-                    AdbMgr.isUp() -> viaAdb(c, name, a)
                     else -> when (name) {
-                        "open_app" -> "无法打开应用：需要先开启无障碍或无线调试。"
+                        "open_app" -> "无法打开应用：请先在设置里开启无障碍服务。"
                         "open_url" -> { c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.optString("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "已请求打开网址" }
-                        else -> "无障碍服务和无线调试都没有开启，无法操作手机。请让用户先在设置里开启其中一个。"
+                        else -> "无障碍服务未开启，无法操作手机。请到设置里开启「我的助手」无障碍服务。"
                     }
                 }
             }
@@ -124,80 +113,6 @@ object Tools {
         else -> "未知工具：$name"
     }
 
-    // ---- 无线调试通道（没有开无障碍时使用） ----
-    private var adbNodes: List<IntArray> = emptyList()
-
-    private fun q(s: String) = "'" + s.replace("'", "'\\''") + "'"
-
-    private suspend fun viaAdb(c: Context, name: String, a: JSONObject): String {
-        fun sh(cmd: String) = AdbMgr.shell(c, cmd)
-        val m = c.resources.displayMetrics
-        val w = m.widthPixels; val h = m.heightPixels
-        return when (name) {
-            "read_screen" -> {
-                val xml = sh("uiautomator dump /dev/tty")
-                val attr = Regex("""([\w-]+)="([^"]*)"""")
-                val list = ArrayList<IntArray>()
-                val sb = StringBuilder()
-                for (n in Regex("""<node [^>]*>""").findAll(xml)) {
-                    val at = attr.findAll(n.value).associate { it.groupValues[1] to it.groupValues[2] }
-                    val text = (at["text"] ?: "").take(80)
-                    val desc = (at["content-desc"] ?: "").take(60)
-                    val click = at["clickable"] == "true"
-                    if (!click && text.isBlank() && desc.isBlank()) continue
-                    val b = Regex("""\[(\d+),(\d+)]\[(\d+),(\d+)]""").find(at["bounds"] ?: "") ?: continue
-                    val (l, t, r, bt) = b.destructured
-                    val cx = (l.toInt() + r.toInt()) / 2; val cy = (t.toInt() + bt.toInt()) / 2
-                    if (list.size >= 120) break
-                    sb.append('[').append(list.size).append("] ").append((at["class"] ?: "").substringAfterLast('.'))
-                    if (text.isNotBlank()) sb.append(" \"").append(text).append('"')
-                    if (desc.isNotBlank() && desc != text) sb.append(" desc=\"").append(desc).append('"')
-                    if (click) sb.append(" 可点击")
-                    sb.append(" @").append(cx).append(',').append(cy).append('\n')
-                    list.add(intArrayOf(cx, cy))
-                }
-                adbNodes = list
-                if (list.isEmpty()) "（没有读取到界面元素：${xml.take(200)}）" else sb.toString()
-            }
-            "tap" -> { val n = adbNodes.getOrNull(a.optInt("id", -1)) ?: return "编号无效，请先 read_screen"
-                sh("input tap ${n[0]} ${n[1]}"); delay(900); "已点击" }
-            "tap_xy" -> { sh("input tap ${a.optInt("x")} ${a.optInt("y")}"); delay(900); "已点击坐标" }
-            "input_text" -> {
-                val t = a.optString("text")
-                val n = adbNodes.getOrNull(a.optInt("id", -1))
-                if (n != null) sh("input tap ${n[0]} ${n[1]}")
-                if (t.any { it.code > 127 }) "无线调试通道不能输入中文，请先开启无障碍服务再输入。"
-                else { sh("input text ${q(t.replace(" ", "%s"))}"); delay(500); "已输入文字" }
-            }
-            "scroll" -> {
-                val cmd = when (a.optString("direction", "down")) {
-                    "up" -> "input swipe ${w / 2} ${h * 28 / 100} ${w / 2} ${h * 72 / 100} 350"
-                    "left" -> "input swipe ${w * 2 / 10} ${h / 2} ${w * 8 / 10} ${h / 2} 350"
-                    "right" -> "input swipe ${w * 8 / 10} ${h / 2} ${w * 2 / 10} ${h / 2} 350"
-                    else -> "input swipe ${w / 2} ${h * 72 / 100} ${w / 2} ${h * 28 / 100} 350"
-                }
-                sh(cmd); delay(700); "已滚动"
-            }
-            "press" -> {
-                when (a.optString("key")) {
-                    "back" -> sh("input keyevent 4"); "home" -> sh("input keyevent 3")
-                    "recents" -> sh("input keyevent 187"); "notifications" -> sh("cmd statusbar expand-notifications")
-                    else -> return "未知按键"
-                }
-                delay(900); "已按键"
-            }
-            "open_app" -> {
-                val pm = c.packageManager
-                val l = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-                val hit = l.firstOrNull { it.loadLabel(pm).toString().contains(a.optString("name"), true) }
-                    ?: return "没有找到应用“${a.optString("name")}”"
-                sh("monkey -p ${hit.activityInfo.packageName} -c android.intent.category.LAUNCHER 1"); delay(1800)
-                "已打开 ${hit.loadLabel(pm)}"
-            }
-            "open_url" -> { sh("am start -a android.intent.action.VIEW -d ${q(a.optString("url"))}"); delay(2000); "已用浏览器打开" }
-            else -> "未知工具：$name"
-        }
-    }
 }
 
 class AgentService : AccessibilityService() {
