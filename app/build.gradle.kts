@@ -10,8 +10,8 @@ android {
         applicationId = "com.myassistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.1"
+        versionCode = 2
+        versionName = "2.0"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -34,4 +34,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // 真正的背景模糊（玻璃效果）
+    implementation("dev.chrisbanes.haze:haze:1.7.2")
+    // 应用内无线调试（配对码 + 连接 + shell）
+    implementation("com.github.MuntashirAkon:libadb-android:1.0.1")
+    implementation("com.github.MuntashirAkon:sun-security-android:1.1")
+    implementation("org.conscrypt:conscrypt-android:2.5.2")
+    // 用 Bouncy Castle 替代 Android 不可用的 sun.security.x509 内部 API
+    implementation("org.bouncycastle:bcpkix-jdk15on:1.69")
+    implementation("org.bouncycastle:bcprov-jdk15on:1.69")
 }
