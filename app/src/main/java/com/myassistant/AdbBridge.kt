@@ -5,21 +5,11 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import io.github.muntashirakon.adb.AbsAdbConnectionManager
-import sun.security.x509.AlgorithmId
-import sun.security.x509.CertificateAlgorithmId
-import sun.security.x509.CertificateExtensions
-import sun.security.x509.CertificateIssuerName
-import sun.security.x509.CertificateSerialNumber
-import sun.security.x509.CertificateSubjectName
-import sun.security.x509.CertificateValidity
-import sun.security.x509.CertificateVersion
-import sun.security.x509.CertificateX509Key
-import sun.security.x509.KeyIdentifier
-import sun.security.x509.PrivateKeyUsageExtension
-import sun.security.x509.SubjectKeyIdentifierExtension
-import sun.security.x509.X500Name
-import sun.security.x509.X509CertImpl
-import sun.security.x509.X509CertInfo
+import java.math.BigInteger
+import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.io.ByteArrayInputStream
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -29,7 +19,6 @@ import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
 import java.security.spec.PKCS8EncodedKeySpec
 import java.util.Date
-import java.util.Random
 
 /** 应用内的无线调试桥：配对码配对 → 连接 → 执行 shell。密钥保存在应用私有目录，配对一次即可。 */
 class AdbMgr private constructor(ctx: Context) : AbsAdbConnectionManager() {
@@ -55,30 +44,22 @@ class AdbMgr private constructor(ctx: Context) : AbsAdbConnectionManager() {
             val gen = KeyPairGenerator.getInstance("RSA")
             gen.initialize(2048, SecureRandom.getInstance("SHA1PRNG"))
             val kp = gen.generateKeyPair()
-            val pub = kp.public
-            p = kp.private
-            val algo = "SHA512withRSA"
-            val from = Date()
+            val privateKey = kp.private
+            p = privateKey
+            val from = Date(System.currentTimeMillis() - 86400000)
             val to = Date(System.currentTimeMillis() + 25L * 365 * 86400000)
-            val ext = CertificateExtensions()
-            ext.set("SubjectKeyIdentifier", SubjectKeyIdentifierExtension(KeyIdentifier(pub).identifier))
-            val name = X500Name("CN=MyAssistant")
-            ext.set("PrivateKeyUsage", PrivateKeyUsageExtension(from, to))
-            val info = X509CertInfo()
-            info.set("version", CertificateVersion(2))
-            info.set("serialNumber", CertificateSerialNumber(Random().nextInt() and Int.MAX_VALUE))
-            info.set("algorithmID", CertificateAlgorithmId(AlgorithmId.get(algo)))
-            info.set("subject", CertificateSubjectName(name))
-            info.set("key", CertificateX509Key(pub))
-            info.set("validity", CertificateValidity(from, to))
-            info.set("issuer", CertificateIssuerName(name))
-            info.set("extensions", ext)
-            val x = X509CertImpl(info)
-            x.sign(p, algo)
-            c = x
+            val subject = X500Name("CN=MyAssistant")
+            val serial = BigInteger.valueOf(System.currentTimeMillis())
+            val certBuilder = JcaX509v3CertificateBuilder(
+                subject, serial, from, to, subject, kp.public
+            )
+            val signer = JcaContentSignerBuilder("SHA256withRSA").build(privateKey)
+            val holder = certBuilder.build(signer)
+            val certificate = JcaX509CertificateConverter().getCertificate(holder)
+            c = certificate
             sp.edit()
-                .putString("priv", android.util.Base64.encodeToString(p!!.encoded, android.util.Base64.NO_WRAP))
-                .putString("cert", android.util.Base64.encodeToString(x.encoded, android.util.Base64.NO_WRAP))
+                .putString("priv", android.util.Base64.encodeToString(privateKey.encoded, android.util.Base64.NO_WRAP))
+                .putString("cert", android.util.Base64.encodeToString(certificate.encoded, android.util.Base64.NO_WRAP))
                 .apply()
         }
         priv = p!!
