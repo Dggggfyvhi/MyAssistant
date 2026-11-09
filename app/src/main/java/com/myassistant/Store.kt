@@ -1,76 +1,70 @@
 package com.myassistant
 
 import android.content.Context
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import org.json.JSONArray
 import org.json.JSONObject
 
-const val DEFAULT_SYSTEM = "你是“我的助手”，运行在用户的 Android 手机上，回答简洁直接，使用中文。" +
-    "需要操作手机时：先在心里把任务拆成步骤，再一步一步调用工具；每次操作之后调用 read_screen 确认结果，不要凭空猜测界面。" +
-    "能用 open_app、set_alarm 这类直接工具时优先用它们。遇到登录、验证码、支付、输入密码和系统设置等敏感步骤，停下来请用户自己完成。" +
-    "shell 工具只用于查询或必要的轻量操作，不要执行删除、卸载、重启等破坏性命令。任务完成后用一两句话汇报结果。"
+const val FREE = "free"
 
-class Chat(val id: String, title: String) {
-    var title by mutableStateOf(title)
-    val msgs = mutableStateListOf<JSONObject>()
+data class Profile(val id: String, val name: String, val base: String, val key: String, val model: String)
+
+data class Msg(
+    val id: Long,
+    val role: String,
+    val content: String,
+    val reasoning: String = "",
+    val thinkMs: Long = 0L,
+    val thinking: Boolean = false,
+    val error: Boolean = false
+)
+
+class Provider(val name: String, val url: String, val key: String, val model: String)
+
+/** 没配置 API 时的临时兜底：匿名、无需密钥的公共 OpenAI 兼容接口，按顺序尝试。 */
+object Free {
+    val list = listOf(
+        Provider("Pollinations", "https://text.pollinations.ai/openai", "", "openai-fast"),
+        Provider("Pollinations", "https://text.pollinations.ai/openai", "", "openai"),
+        Provider("Airforce", "https://api.airforce/v1/chat/completions", "", "grok-4.1-mini:free"),
+        Provider("Airforce", "https://api.airforce/v1/chat/completions", "", "step-3.5-flash:free")
+    )
 }
 
 class Store(ctx: Context) {
     private val sp = ctx.getSharedPreferences("my_assistant", Context.MODE_PRIVATE)
-    private fun s(k: String, d: String = "") = sp.getString(k, d) ?: d
 
-    var baseUrl: String
-        get() = s("base")
-        set(v) { sp.edit().putString("base", v).apply() }
-    var apiKey: String
-        get() = s("key")
-        set(v) { sp.edit().putString("key", v).apply() }
-    var model: String
-        get() = s("model")
-        set(v) { sp.edit().putString("model", v).apply() }
-    var system: String
-        get() = s("sys", DEFAULT_SYSTEM)
-        set(v) { sp.edit().putString("sys", v).apply() }
-    var speak: Boolean
-        get() = sp.getBoolean("speak", true)
-        set(v) { sp.edit().putBoolean("speak", v).apply() }
-    var agent: Boolean
-        get() = sp.getBoolean("agent", true)
-        set(v) { sp.edit().putBoolean("agent", v).apply() }
+    var active: String
+        get() = sp.getString("active", FREE) ?: FREE
+        set(v) { sp.edit().putString("active", v).apply() }
 
-    var stt: String
-        get() = s("stt", "model")
-        set(v) { sp.edit().putString("stt", v).apply() }
-
-    fun configured() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank()
-
-    fun loadChats(): List<Chat> = try {
-        val arr = JSONArray(s("chats", "[]"))
-        (0 until arr.length()).map { i ->
-            val o = arr.getJSONObject(i)
-            Chat(o.getString("id"), o.optString("title")).also { c ->
-                val m = o.getJSONArray("msgs")
-                for (k in 0 until m.length()) c.msgs.add(m.getJSONObject(k))
-            }
+    fun loadProfiles(): List<Profile> = try {
+        val a = JSONArray(sp.getString("profiles", "[]"))
+        (0 until a.length()).map {
+            val o = a.getJSONObject(it)
+            Profile(o.getString("id"), o.optString("name"), o.optString("base"), o.optString("key"), o.optString("model"))
         }
     } catch (e: Exception) { emptyList() }
 
-    fun saveChats(list: List<Chat>) {
-        try {
-            val arr = JSONArray()
-            list.take(50).forEach { c ->
-                val m = JSONArray()
-                c.msgs.toList().forEach { msg ->
-                    if (msg.optString("role") == "tool" && msg.optString("content").length > 500) {
-                        m.put(JSONObject(msg.toString()).put("content", msg.optString("content").take(500) + "…"))
-                    } else m.put(msg)
-                }
-                arr.put(JSONObject().put("id", c.id).put("title", c.title).put("msgs", m))
-            }
-            sp.edit().putString("chats", arr.toString()).apply()
-        } catch (e: Exception) { }
+    fun saveProfiles(l: List<Profile>) {
+        val a = JSONArray()
+        l.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name).put("base", it.base).put("key", it.key).put("model", it.model)) }
+        sp.edit().putString("profiles", a.toString()).apply()
+    }
+
+    fun loadChat(): List<Msg> = try {
+        val a = JSONArray(sp.getString("chat", "[]"))
+        (0 until a.length()).map {
+            val o = a.getJSONObject(it)
+            Msg(o.getLong("id"), o.getString("role"), o.optString("content"), o.optString("reasoning"), o.optLong("thinkMs"))
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun saveChat(l: List<Msg>) {
+        val a = JSONArray()
+        l.filter { !it.error && (it.content.isNotBlank() || it.role == "user") }.takeLast(200).forEach {
+            a.put(JSONObject().put("id", it.id).put("role", it.role).put("content", it.content)
+                .put("reasoning", it.reasoning).put("thinkMs", it.thinkMs))
+        }
+        sp.edit().putString("chat", a.toString()).apply()
     }
 }

@@ -9,112 +9,86 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
-import java.util.UUID
 import java.util.concurrent.TimeUnit
-
-class ToolCall(val id: String, val name: String, val args: String, val extra: JSONObject? = null)
-class Reply(val text: String, val calls: List<ToolCall>)
 
 object Api {
     private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
         .build()
     private val JSON = "application/json".toMediaType()
 
     @Volatile var call: Call? = null
 
-    private fun req(base: String, key: String, path: String) =
-        Request.Builder()
-            .url(base.trim().trimEnd('/') + path)
-            .header("Authorization", "Bearer ${key.trim()}")
+    fun urlOf(base: String) = base.trim().trimEnd('/') + "/chat/completions"
+
+    private fun JSONObject.str(k: String): String = if (isNull(k)) "" else optString(k, "")
+
+    private fun build(p: Provider, body: JSONObject): Request =
+        Request.Builder().url(p.url)
+            .apply { if (p.key.isNotBlank()) header("Authorization", "Bearer ${p.key.trim()}") }
+            .post(body.toString().toRequestBody(JSON)).build()
 
     fun models(base: String, key: String): List<String> {
-        return http.newCall(req(base, key, "/models").build()).execute().use { r ->
+        val req = Request.Builder().url(base.trim().trimEnd('/') + "/models")
+            .apply { if (key.isNotBlank()) header("Authorization", "Bearer ${key.trim()}") }.build()
+        return http.newCall(req).execute().use { r ->
             val b = r.body?.string().orEmpty()
-            if (!r.isSuccessful) throw IOException("${r.code} ${b.take(200)}")
+            if (!r.isSuccessful) throw IOException("${r.code} ${b.take(160)}")
             val arr = JSONObject(b).optJSONArray("data") ?: throw IOException("返回内容不是 OpenAI 格式的模型列表")
-            (0 until arr.length()).map { arr.getJSONObject(it).optString("id") }
-                .filter { it.isNotBlank() }.sorted()
+            (0 until arr.length()).map { arr.getJSONObject(it).optString("id") }.filter { it.isNotBlank() }.sorted()
         }
     }
 
-    fun test(base: String, key: String, model: String): String {
+    fun test(p: Provider): String {
         val t0 = System.currentTimeMillis()
-        val body = JSONObject().put("model", model)
+        val body = JSONObject().put("model", p.model)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", "hi")))
         return try {
-            http.newCall(req(base, key, "/chat/completions").post(body.toString().toRequestBody(JSON)).build())
-                .execute().use { r ->
-                    val s = r.body?.string().orEmpty()
-                    if (r.isSuccessful) "✓ 连接正常 · ${System.currentTimeMillis() - t0} ms"
-                    else "✗ ${r.code} ${s.take(160)}"
-                }
+            http.newCall(build(p, body)).execute().use { r ->
+                val s = r.body?.string().orEmpty()
+                if (r.isSuccessful) "✓ 连接正常 · ${System.currentTimeMillis() - t0} ms" else "✗ ${r.code} ${s.take(140)}"
+            }
         } catch (e: Exception) { "✗ ${e.message}" }
     }
 
-    /** 用支持音频输入的模型（如 Gemini）把一段 wav 转成文字。 */
-    fun transcribe(base: String, key: String, model: String, wav: ByteArray): String {
-        val b64 = android.util.Base64.encodeToString(wav, android.util.Base64.NO_WRAP)
-        val content = JSONArray()
-            .put(JSONObject().put("type", "text").put("text", "请逐字转写这段音频里说的话，只输出转写出的文字，不要解释。没有人说话就输出空。"))
-            .put(JSONObject().put("type", "input_audio").put("input_audio", JSONObject().put("data", b64).put("format", "wav")))
-        val body = JSONObject().put("model", model)
-            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
-        return http.newCall(req(base, key, "/chat/completions").post(body.toString().toRequestBody(JSON)).build()).execute().use { r ->
-            val s = r.body?.string().orEmpty()
-            if (!r.isSuccessful) throw IOException("${r.code} ${s.take(160)}")
-            val m = JSONObject(s).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
-            if (m.isNull("content")) "" else m.getString("content").trim()
-        }
-    }
-
-    private class Acc { val id = StringBuilder(); val name = StringBuilder(); val args = StringBuilder(); var extra: JSONObject? = null }
-
-    fun stream(
-        base: String, key: String, model: String,
-        msgs: List<JSONObject>, tools: JSONArray?, onText: (String) -> Unit
-    ): Reply {
-        val body = JSONObject().put("model", model).put("stream", true).put("messages", JSONArray(msgs))
-        if (tools != null) body.put("tools", tools)
-        val c = http.newCall(req(base, key, "/chat/completions").post(body.toString().toRequestBody(JSON)).build())
+    /** 流式对话。onDelta 收到的是累计的（正文，思考过程）。返回最终的（正文，思考过程）。 */
+    fun stream(p: Provider, history: List<Pair<String, String>>, onDelta: (String, String) -> Unit): Pair<String, String> {
+        val arr = JSONArray()
+        history.forEach { arr.put(JSONObject().put("role", it.first).put("content", it.second)) }
+        val body = JSONObject().put("model", p.model).put("stream", true).put("messages", arr)
+        val c = http.newCall(build(p, body))
         call = c
         return c.execute().use { r ->
-            if (!r.isSuccessful) throw IOException("${r.code} ${r.body?.string()?.take(300)}")
+            if (!r.isSuccessful) throw IOException("${r.code} ${r.body?.string()?.take(160).orEmpty()}")
+            val ct = r.header("Content-Type").orEmpty()
             val src = r.body!!.source()
-            val sb = StringBuilder()
-            val acc = sortedMapOf<Int, Acc>()
-            while (true) {
-                val line = src.readUtf8Line() ?: break
-                if (!line.startsWith("data:")) continue
-                val d = line.substring(5).trim()
-                if (d == "[DONE]") break
-                if (d.isEmpty()) continue
-                val j = try { JSONObject(d) } catch (e: JSONException) { continue }
-                val delta = j.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta") ?: continue
-                if (!delta.isNull("content")) {
-                    sb.append(delta.getString("content"))
-                    onText(sb.toString())
-                }
-                val tcs = delta.optJSONArray("tool_calls")
-                if (tcs != null) for (k in 0 until tcs.length()) {
-                    val t = tcs.getJSONObject(k)
-                    val a = acc.getOrPut(t.optInt("index", k)) { Acc() }
-                    if (!t.isNull("id") && a.id.isEmpty()) a.id.append(t.getString("id"))
-                    t.optJSONObject("extra_content")?.let { a.extra = it }
-                    val f = t.optJSONObject("function")
-                    if (f != null) {
-                        if (!f.isNull("name") && a.name.isEmpty()) a.name.append(f.getString("name"))
-                        if (!f.isNull("arguments")) a.args.append(f.getString("arguments"))
-                    }
+            val content = StringBuilder()
+            val reason = StringBuilder()
+            if (ct.contains("json") && !ct.contains("event-stream")) {
+                val m = JSONObject(src.readUtf8()).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+                content.append(m.str("content"))
+                reason.append(m.str("reasoning_content").ifEmpty { m.str("reasoning") })
+                onDelta(content.toString(), reason.toString())
+            } else {
+                while (true) {
+                    val line = src.readUtf8Line() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val d = line.substring(5).trim()
+                    if (d == "[DONE]") break
+                    if (d.isEmpty()) continue
+                    val j = try { JSONObject(d) } catch (e: JSONException) { continue }
+                    val delta = j.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta") ?: continue
+                    val dc = delta.str("content")
+                    val dr = delta.str("reasoning_content").ifEmpty { delta.str("reasoning") }
+                    if (dc.isEmpty() && dr.isEmpty()) continue
+                    content.append(dc)
+                    reason.append(dr)
+                    onDelta(content.toString(), reason.toString())
                 }
             }
-            Reply(sb.toString(), acc.values.filter { it.name.isNotEmpty() }.map {
-                ToolCall(
-                    it.id.toString().ifEmpty { "call_" + UUID.randomUUID().toString().take(8) },
-                    it.name.toString(), it.args.toString().ifEmpty { "{}" }, it.extra
-                )
-            })
+            if (content.isEmpty() && reason.isEmpty()) throw IOException("空响应")
+            content.toString() to reason.toString()
         }
     }
 }

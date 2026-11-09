@@ -14,10 +14,10 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.14.3
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+          gradle-version: 8.10.2
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: MyAssistant-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/release/*.apk

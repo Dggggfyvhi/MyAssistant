@@ -1,4 +1,3 @@
 <resources>
     <string name="app_name">我的助手</string>
-    <string name="a11y_desc">允许“我的助手”读取屏幕内容并代替你点击、输入、滑动，用于执行你交给它的任务。</string>
 </resources>
